@@ -520,6 +520,30 @@ class DeltaTable private[tables](
    * @since 0.3.0
    */
   @Evolving
+  def merge(source: DataFrame, condition: Column): DeltaMergeBuilder = {
+    DeltaMergeBuilder(this, source, condition)
+  }
+  /**
+   * :: Evolving ::
+   *
+   * Caches data from the DeltaStore based on the given table. This returns
+   * a [[Map[String, Column]]] object that can be used to improve the latency of operations
+   *
+   * See the [[Map[String, Column]]] for a full description 
+   * Scala example to update a key-value Delta table with new key-values from a source DataFrame:
+   * {{{
+   *    deltaTable
+   *     .as("target")
+   *     .readRow(
+   *       source.as("source"),
+   *       "target.key = source.key")
+   * }}}
+   *
+   *
+   * @param source source Dataframe to be merged.
+   * @since 0.3.0
+   */
+  @Evolving
   def readRow(source: DataFrame, condition: Column): Map[String, Column] = {
     // CALL to scala API
       }
