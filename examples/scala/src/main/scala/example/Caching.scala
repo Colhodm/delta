@@ -24,7 +24,7 @@ import org.apache.spark.sql.functions._
 import org.apache.commons.io.FileUtils
 import java.io.File
 
-object Quickstart {
+object QuickstartCaching {
   def main(args: Array[String]): Unit = {
 
     val spark = SparkSession
