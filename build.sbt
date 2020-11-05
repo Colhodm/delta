@@ -38,9 +38,13 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-sql" % sparkVersion.value % "test" classifier "tests",
   "org.apache.spark" %% "spark-hive" % sparkVersion.value % "test" classifier "tests",
 
+  // Caching dependencies
+  "org.rocksdb" % "rocksdbjni" % "6.13.3",
+
   // Compiler plugins
   // -- Bump up the genjavadoc version explicitly to 0.16 to work with Scala 2.12
   compilerPlugin("com.typesafe.genjavadoc" %% "genjavadoc-plugin" % "0.16" cross CrossVersion.full)
+
 )
 
 antlr4Settings
