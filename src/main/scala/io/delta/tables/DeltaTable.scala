@@ -29,6 +29,9 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.types.StructType
 
+import org.rocksdb._
+import java.io.File
+
 /**
  * :: Evolving ::
  *
@@ -571,6 +574,26 @@ class DeltaTable private[tables](
   @Evolving
   def readRow(source: DataFrame, condition: String): Unit = {
     // Call to Scala API
+    // scalastyle:off println
+    println("Run readRow test 2")
+    // scalastyle:on println
+    val tmpFile = File.createTempFile("rocksdb", ".db")
+    val tmpFileName = tmpFile.getAbsolutePath
+    tmpFile.delete
+
+    var options = new Options().setCreateIfMissing(true)
+    RocksDB.loadLibrary()
+    var store = RocksDB.open(options, tmpFileName )
+
+    var isOpen : Boolean = true
+    val UTF8  : String = "UTF-8"
+    def put(k: String, v: String) = {
+      assert(isOpen)
+      store.put(
+        k.getBytes(UTF8),
+        v.getBytes(UTF8)
+      )
+    }
   }
   /**
    * :: Evolving ::
