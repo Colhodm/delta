@@ -27,6 +27,8 @@ def getDeltaVersion(): String = {
     println("Using Delta version " + version)
     version
   } else {
+    // "0.7.0"
+    // Local version
     "0.8.0"
   }
 }
@@ -36,5 +38,7 @@ lazy val root = (project in file("."))
     name := "hello-world",
     libraryDependencies += "io.delta" %% "delta-core" % getDeltaVersion(),
     libraryDependencies += "org.apache.spark" %% "spark-sql" % "3.0.0",
+    libraryDependencies += "org.rocksdb" % "rocksdbjni" % "6.13.3",
     // resolvers += "Delta" at "https://dl.bintray.com/delta-io/delta/")
+    // Local M2 version
     resolvers += "Delta" at Path.userHome.asFile.toURI.toURL + ".m2/repository/")
