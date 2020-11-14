@@ -654,7 +654,6 @@ class DeltaTable private[tables](
       }
       println(desiredRow)
     }
-    
   }
   /**
    * :: Evolving ::
