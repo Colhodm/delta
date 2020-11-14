@@ -46,8 +46,41 @@ import java.io.File
 @Evolving
 class DeltaTable private[tables](
     @transient private val _df: Dataset[Row],
-    @transient private val table: DeltaTableV2)
+    @transient private val table: DeltaTableV2,
+    private var _cache: RocksDB = null
+  )
   extends DeltaTableOperations with Serializable {
+
+  // scalastyle:off println
+  protected def cache: RocksDB = {
+    if (_cache == null) {
+      // Initialize cache
+      RocksDB.loadLibrary()
+
+      // Create individual cache directory per delta table
+      val CACHE_PATH = "/tmp/delta-lake-cache/"
+      val directoryPath = CACHE_PATH.concat("test")
+      val directory = new File(directoryPath)
+
+      if (directory.exists()) {
+        // Clean previous rocksdb cache if exists
+        var entries = directory.list()
+        for(s <- entries) {
+          var currentFile = new File(directoryPath, s)
+          currentFile.delete()
+        }
+      } else {
+        directory.mkdirs()
+      }
+
+      // Further configure options here
+      var options = new Options().setCreateIfMissing(true)
+
+      _cache = RocksDB.open(options, directoryPath)
+    }
+
+    _cache
+  }
 
   protected def deltaLog: DeltaLog = {
     /** Assert the codes run in the driver. */
@@ -574,26 +607,9 @@ class DeltaTable private[tables](
   @Evolving
   def readRow(source: DataFrame, condition: String): Unit = {
     // Call to Scala API
-    // scalastyle:off println
-    println("Run readRow test 2")
-    // scalastyle:on println
-    val tmpFile = File.createTempFile("rocksdb", ".db")
-    val tmpFileName = tmpFile.getAbsolutePath
-    tmpFile.delete
-
-    var options = new Options().setCreateIfMissing(true)
-    RocksDB.loadLibrary()
-    var store = RocksDB.open(options, tmpFileName )
-
-    var isOpen : Boolean = true
-    val UTF8  : String = "UTF-8"
-    def put(k: String, v: String) = {
-      assert(isOpen)
-      store.put(
-        k.getBytes(UTF8),
-        v.getBytes(UTF8)
-      )
-    }
+    println("Putting a: b")
+    cache.put("a".getBytes(), "b".getBytes())
+    println("Fetching key a: " + new String(cache.get("a".getBytes())))
   }
   /**
    * :: Evolving ::
