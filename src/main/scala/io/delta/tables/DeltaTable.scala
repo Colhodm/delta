@@ -31,6 +31,7 @@ import org.apache.spark.sql.types.StructType
 
 import org.rocksdb._
 import java.io.File
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 
 /**
  * :: Evolving ::
@@ -47,7 +48,8 @@ import java.io.File
 class DeltaTable private[tables](
     @transient private val _df: Dataset[Row],
     @transient private val table: DeltaTableV2,
-    private var _cache: RocksDB = null
+    private var _cache: RocksDB = null,
+    private var primaryKey : String = "id"
   )
   extends DeltaTableOperations with Serializable {
 
@@ -605,11 +607,54 @@ class DeltaTable private[tables](
    * @since 0.3.0
    */
   @Evolving
-  def readRow(source: DataFrame, condition: String): Unit = {
+  def readRow(condition: String): Unit = {
     // Call to Scala API
-    println("Putting a: b")
-    cache.put("a".getBytes(), "b".getBytes())
-    println("Fetching key a: " + new String(cache.get("a".getBytes())))
+    // println("Putting a: b")
+    // cache.put("a".getBytes(), "b".getBytes())
+    // println("Fetching key a: " + new String(cache.get("a".getBytes())))
+
+    // https://stackoverflow.com/questions/39369319/convert-any-type-in-scala-to-arraybyte-and-back
+    def serialise(value: Any): Array[Byte] = {
+      val stream: ByteArrayOutputStream = new ByteArrayOutputStream()
+      val oos = new ObjectOutputStream(stream)
+      oos.writeObject(value)
+      oos.close()
+      stream.toByteArray
+    }
+
+    def deserialise(bytes: Array[Byte]): Any = {
+      val ois = new ObjectInputStream(new ByteArrayInputStream(bytes))
+      val value = ois.readObject
+      ois.close()
+      value
+    }
+
+
+    val cacheResult = cache.get(serialise(condition))
+
+    if (cacheResult != null) {
+      // deserialise the cache result, and return the row
+      println(deserialise(cacheResult))
+    } else {
+      val primaryCol = df(primaryKey)
+      val rows = df.collect()
+
+      var desiredRow : Row = null
+
+      // iterate through the df and put in each row into the cache
+      for(r <- rows) {
+        // put serializd row into cache
+        cache.put(serialise(r.getAs(primaryKey)), serialise(r))
+
+        // compare primary key to see it matches condition
+        if (r.getAs(primaryKey) ==  condition) {
+          desiredRow = r
+        }
+        // println(r.getAs(primaryKey))
+      }
+      println(desiredRow)
+    }
+    
   }
   /**
    * :: Evolving ::
