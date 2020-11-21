@@ -77,6 +77,18 @@ class DeltaTable private[tables](
 
       // Further configure options here
       var options = new Options().setCreateIfMissing(true)
+      var tableConfig = new BlockBasedTableConfig()
+
+      // Use hashed link list vs default skip list
+      // var memTableConfig = new HashLinkedListMemTableConfig()
+      // options.setMemTableConfig(memTableConfig)
+
+      // Set bloom filter
+      // tableConfig.setFilterPolicy(new BloomFilter(10, false))
+      // options.setTableFormatConfig(tableConfig)
+
+      // Use 1/4 of memtable for in memory bloom filter
+      // options.setMemtablePrefixBloomSizeRation(0.25)
 
       _cache = RocksDB.open(options, directoryPath)
     }
@@ -607,7 +619,7 @@ class DeltaTable private[tables](
    * @since 0.3.0
    */
   @Evolving
-  def readRow(condition: String): Unit = {
+  def readRow(condition: String): Row = {
     // Call to Scala API
     // println("Putting a: b")
     // cache.put("a".getBytes(), "b".getBytes())
