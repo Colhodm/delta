@@ -17,6 +17,8 @@
 package io.delta.tables
 
 import scala.collection.JavaConverters._
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 
 import org.apache.spark.sql.delta._
 import org.apache.spark.sql.delta.actions.Protocol
@@ -641,32 +643,49 @@ class DeltaTable private[tables](
       value
     }
 
-
     val cacheResult = cache.get(serialise(condition))
 
+    // Cache hit
     if (cacheResult != null) {
-      // deserialise the cache result, and return the row
-      println(deserialise(cacheResult))
+      return deserialise(cacheResult).asInstanceOf[Row]
+
+    // Cache miss
     } else {
-      val primaryCol = df(primaryKey)
-      val rows = df.collect()
+      // Rows to load, modify @Aditya
+      val allRows = df.collect()
 
-      var desiredRow : Row = null
+      val cond : String = primaryKey + " = " + condition
+      println("checking condition: " + cond)
 
-      // iterate through the df and put in each row into the cache
-      for(r <- rows) {
-        // put serializd row into cache
-        cache.put(serialise(r.getAs(primaryKey)), serialise(r))
+      // Return first row with matching key
+      var desiredRow = df.filter(cond).first()
 
-        // compare primary key to see it matches condition
-        if (r.getAs(primaryKey) ==  condition) {
-          desiredRow = r
-        }
-        // println(r.getAs(primaryKey))
+      // Load cache with all rows
+      Future {
+        // TODO: Keep track of which tables are being loaded, we don't want to load twice
+        loadCache(allRows)
       }
-      println(desiredRow)
+
+      return desiredRow
     }
   }
+
+  protected def loadCache(rows: Array[Row]): Unit = {
+    def serialise(value: Any): Array[Byte] = {
+      val stream: ByteArrayOutputStream = new ByteArrayOutputStream()
+      val oos = new ObjectOutputStream(stream)
+      oos.writeObject(value)
+      oos.close()
+      stream.toByteArray
+    }
+
+    for(r <- rows) {
+      println("Loading row " + r)
+      // Put serializd row into cache
+      cache.put(serialise(r.getAs(primaryKey)), serialise(r))
+    }
+  }
+
   /**
    * :: Evolving ::
    *
