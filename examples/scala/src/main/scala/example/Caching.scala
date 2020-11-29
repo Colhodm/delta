@@ -65,8 +65,10 @@ object QuickstartCaching {
       .execute()
 
     deltaTable.toDF.show()
-    println(deltaTable.as("oldData")
-      .readRow("5"))
+
+    for (x <- 1 to 20) {
+      println(deltaTable.readRow(x.toString))
+    }
 
     // Cleanup
     FileUtils.deleteDirectory(file)

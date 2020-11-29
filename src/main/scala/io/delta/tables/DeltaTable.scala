@@ -51,6 +51,7 @@ class DeltaTable private[tables](
     @transient private val _df: Dataset[Row],
     @transient private val table: DeltaTableV2,
     private var _cache: RocksDB = null,
+    private var hasCached: Boolean = false,
     private var primaryKey : String = "id"
   )
   extends DeltaTableOperations with Serializable {
@@ -59,23 +60,13 @@ class DeltaTable private[tables](
   protected def cache: RocksDB = {
     if (_cache == null) {
       // Initialize cache
+      println("Creating rocksdb cache")
       RocksDB.loadLibrary()
 
       // Create individual cache directory per delta table
       val CACHE_PATH = "/tmp/delta-lake-cache/"
       val directoryPath = CACHE_PATH.concat("test")
       val directory = new File(directoryPath)
-
-      if (directory.exists()) {
-        // Clean previous rocksdb cache if exists
-        var entries = directory.list()
-        for(s <- entries) {
-          var currentFile = new File(directoryPath, s)
-          currentFile.delete()
-        }
-      } else {
-        directory.mkdirs()
-      }
 
       // Further configure options here
       var options = new Options().setCreateIfMissing(true)
@@ -91,6 +82,18 @@ class DeltaTable private[tables](
 
       // Use 1/4 of memtable for in memory bloom filter
       // options.setMemtablePrefixBloomSizeRation(0.25)
+
+      if (directory.exists()) {
+        // Clean previous rocksdb cache if exists
+        var entries = directory.list()
+        for(s <- entries) {
+          var currentFile = new File(directoryPath, s)
+          currentFile.delete()
+        }
+       // Maybe open in read only mode
+      } else {
+        directory.mkdirs()
+      }
 
       _cache = RocksDB.open(options, directoryPath)
     }
@@ -678,11 +681,15 @@ class DeltaTable private[tables](
       oos.close()
       stream.toByteArray
     }
+    println("Caching " + rows + " size " + rows.size)
 
+    // This for loop isn't working somehow
     for(r <- rows) {
-      println("Loading row " + r)
+      val rKey = r.getAs(primaryKey)
+      println("Loading row " + rKey + ", " + r)
       // Put serializd row into cache
-      cache.put(serialise(r.getAs(primaryKey)), serialise(r))
+      cache.put(serialise(rKey), serialise(r))
+      println("cache get " + rKey + " = " + cache.get(serialise(rKey)))
     }
   }
 
