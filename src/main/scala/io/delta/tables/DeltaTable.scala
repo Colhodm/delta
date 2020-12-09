@@ -654,8 +654,6 @@ class DeltaTable private[tables](
 
     // Cache miss
     } else {
-      // Rows to load, modify @Aditya
-      val allRows = df.collect()
 
       val cond : String = primaryKey + " = " + condition
       println("checking condition: " + cond)
@@ -664,9 +662,12 @@ class DeltaTable private[tables](
       var desiredRow = df.filter(cond).first()
 
       // Load cache with all rows
-      Future {
-        // TODO: Keep track of which tables are being loaded, we don't want to load twice
-        loadCache(allRows)
+      if (!hasCached) {
+        hasCached = true
+        Future {
+          val allRows = df.collect()
+          loadCache(allRows)
+        }
       }
 
       return desiredRow
@@ -683,14 +684,12 @@ class DeltaTable private[tables](
     }
     println("Caching " + rows + " size " + rows.size)
 
-    // This for loop isn't working somehow
     for(r <- rows) {
-      val rKey = r.getAs(primaryKey)
-      println("Loading row " + rKey + ", " + r)
-      // Put serializd row into cache
-      cache.put(serialise(rKey), serialise(r))
-      println("cache get " + rKey + " = " + cache.get(serialise(rKey)))
+      println("Loading row " + r)
+      cache.put(serialise(r.getAs(primaryKey).toString), serialise(r))
     }
+    println("Finish caching")
+
   }
 
   /**
