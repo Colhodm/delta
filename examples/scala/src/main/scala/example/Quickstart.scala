@@ -35,61 +35,37 @@ object Quickstart {
       .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
       .getOrCreate()
 
+
     val file = new File("/tmp/delta-table")
     if (file.exists()) FileUtils.deleteDirectory(file)
-    
     // Create a table
     println("Creating a table")
     val path = file.getCanonicalPath
-    var data = spark.range(0, 5)
+    var data = spark.range(0, 10000)
     data.write.format("delta").save(path)
 
     // Read table
-    println("Reading the table")
-    val df = spark.read.format("delta").load(path)
-    df.show()
-
-    // Upsert (merge) new data
-    println("Upsert new data")
-    val newData = spark.range(0, 20).toDF
     val deltaTable = DeltaTable.forPath(path)
+    println("Reading table")
+    for( a <- 1 to 10){ 
+    val r = new scala.util.Random
+    val r1 = r.nextInt(10000)
+    val t0 = System.nanoTime()
 
-    deltaTable.as("oldData")
-      .merge(
-        newData.as("newData"),
-        "oldData.id = newData.id")
-      .whenMatched
-      .update(Map("id" -> col("newData.id")))
-      .whenNotMatched
-      .insert(Map("id" -> col("newData.id")))
-      .execute()
+      println(deltaTable.readRow((r1).toString),r1)
 
-    deltaTable.toDF.show()
+    val t1 = System.nanoTime()
 
-    // Update table data
-    println("Overwrite the table")
-    data = spark.range(5, 10)
-    data.write.format("delta").mode("overwrite").save(path)
-    deltaTable.toDF.show()
+    println("" + (t1 - t0) + "ns")
+    
 
-    // Update every even value by adding 100 to it
-    println("Update to the table (add 100 to every even value)")
-    deltaTable.update(
-      condition = expr("id % 2 == 0"),
-      set = Map("id" -> expr("id + 100")))
-    deltaTable.toDF.show()
 
-    // Delete every even value
-    deltaTable.delete(condition = expr("id % 2 == 0"))
-    deltaTable.toDF.show()
 
-    // Read old version of the data using time travel
-    print("Read old data using time travel")
-    val df2 = spark.read.format("delta").option("versionAsOf", 0).load(path)
-    df2.show()
-
+    }
     // Cleanup
     FileUtils.deleteDirectory(file)
+    
     spark.stop()
   }
 }
+
