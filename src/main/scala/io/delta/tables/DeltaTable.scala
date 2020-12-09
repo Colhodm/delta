@@ -662,13 +662,8 @@ class DeltaTable private[tables](
       var desiredRow = df.filter(cond).first()
 
       // Load cache with all rows
-      if (!hasCached) {
-        hasCached = true
-        Future {
-          val allRows = df.collect()
-          loadCache(allRows)
-        }
-      }
+      val allRows = df.collect()
+      loadCache(allRows)
 
       return desiredRow
     }
