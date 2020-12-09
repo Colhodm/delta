@@ -50,56 +50,9 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, 
 class DeltaTable private[tables](
     @transient private val _df: Dataset[Row],
     @transient private val table: DeltaTableV2,
-    private var _cache: RocksDB = null,
-    private var hasCached: Boolean = false,
     private var primaryKey : String = "id"
   )
   extends DeltaTableOperations with Serializable {
-
-  // scalastyle:off println
-  protected def cache: RocksDB = {
-    if (_cache == null) {
-      // Initialize cache
-      println("Creating rocksdb cache")
-      RocksDB.loadLibrary()
-
-      // Create individual cache directory per delta table
-      val CACHE_PATH = "/tmp/delta-lake-cache/"
-      val directoryPath = CACHE_PATH.concat("test")
-      val directory = new File(directoryPath)
-
-      // Further configure options here
-      var options = new Options().setCreateIfMissing(true)
-      var tableConfig = new BlockBasedTableConfig()
-
-      // Use hashed link list vs default skip list
-      // var memTableConfig = new HashLinkedListMemTableConfig()
-      // options.setMemTableConfig(memTableConfig)
-
-      // Set bloom filter
-      // tableConfig.setFilterPolicy(new BloomFilter(10, false))
-      // options.setTableFormatConfig(tableConfig)
-
-      // Use 1/4 of memtable for in memory bloom filter
-      // options.setMemtablePrefixBloomSizeRation(0.25)
-
-      if (directory.exists()) {
-        // Clean previous rocksdb cache if exists
-        var entries = directory.list()
-        for(s <- entries) {
-          var currentFile = new File(directoryPath, s)
-          currentFile.delete()
-        }
-       // Maybe open in read only mode
-      } else {
-        directory.mkdirs()
-      }
-
-      _cache = RocksDB.open(options, directoryPath)
-    }
-
-    _cache
-  }
 
   protected def deltaLog: DeltaLog = {
     /** Assert the codes run in the driver. */
@@ -625,72 +578,9 @@ class DeltaTable private[tables](
    */
   @Evolving
   def readRow(condition: String): Row = {
-    // Call to Scala API
-    // println("Putting a: b")
-    // cache.put("a".getBytes(), "b".getBytes())
-    // println("Fetching key a: " + new String(cache.get("a".getBytes())))
-
-    // https://stackoverflow.com/questions/39369319/convert-any-type-in-scala-to-arraybyte-and-back
-    def serialise(value: Any): Array[Byte] = {
-      val stream: ByteArrayOutputStream = new ByteArrayOutputStream()
-      val oos = new ObjectOutputStream(stream)
-      oos.writeObject(value)
-      oos.close()
-      stream.toByteArray
-    }
-
-    def deserialise(bytes: Array[Byte]): Any = {
-      val ois = new ObjectInputStream(new ByteArrayInputStream(bytes))
-      val value = ois.readObject
-      ois.close()
-      value
-    }
-
-    val cacheResult = cache.get(serialise(condition))
-
-    // Cache hit
-    if (cacheResult != null) {
-      return deserialise(cacheResult).asInstanceOf[Row]
-
-    // Cache miss
-    } else {
-      // Rows to load, modify @Aditya
-      val allRows = df.collect()
-
-      val cond : String = primaryKey + " = " + condition
-      println("checking condition: " + cond)
-
-      // Return first row with matching key
-      var desiredRow = df.filter(cond).first()
-
-      // Load cache with all rows
-      Future {
-        // TODO: Keep track of which tables are being loaded, we don't want to load twice
-        loadCache(allRows)
-      }
-
-      return desiredRow
-    }
-  }
-
-  protected def loadCache(rows: Array[Row]): Unit = {
-    def serialise(value: Any): Array[Byte] = {
-      val stream: ByteArrayOutputStream = new ByteArrayOutputStream()
-      val oos = new ObjectOutputStream(stream)
-      oos.writeObject(value)
-      oos.close()
-      stream.toByteArray
-    }
-    println("Caching " + rows + " size " + rows.size)
-
-    // This for loop isn't working somehow
-    for(r <- rows) {
-      val rKey = r.getAs(primaryKey)
-      println("Loading row " + rKey + ", " + r)
-      // Put serializd row into cache
-      cache.put(serialise(rKey), serialise(r))
-      println("cache get " + rKey + " = " + cache.get(serialise(rKey)))
-    }
+    val cond : String = primaryKey + " = " + condition
+    var desiredRow = df.filter(cond).first()
+    return desiredRow
   }
 
   /**
